@@ -62,7 +62,7 @@ fn select_usb_device(devices: Vec<DeviceInfo>) -> usize {
     // Parse the input to an integer
     let index: usize = input.trim().parse().unwrap();
     let max_index = devices.len();
-    let i = if index >= 0 && index < max_index {
+    let i = if index < max_index {
         index
     } else {
         println!("Invalid index. Please try again.");
@@ -121,21 +121,21 @@ fn main() {
     }
 
     // Read data from the device
-    let mut buf = [0u8; 256]; // Buffer to hold the read data
+    let mut buf = [0u8; 64]; // Buffer to hold the read data
     let bytes_read = device.read(&mut buf[..]).unwrap();
     println!("Raw data: {:?}", buf);
-    // let mut aim_identifier = String::new();
     let aim_identifier: String = buf[2..=4].iter()
-        .map(|&x| x as u8 as char) // Convert each integer to a char
+        .map(|&x| x as char) // Convert each integer to a char
         .collect(); // Collect the characters into a String
     println!("AIM identifier: {}", aim_identifier);
     
-    // let mut data_string = String::new();
+    let data_len: usize = buf[1] as usize;
+    // println!("data_len: {}", data_len);
     // Convert the vector to a string. This skips the header AND the AIM identifier.
-    let data_string: String = buf[5..=bytes_read].iter()
-        .map(|&x| x as u8 as char) // Convert each integer to a char
+    let data_string: String = buf[5..=data_len+5].iter()
+        .map(|&x| x as char) // Convert each integer to a char
         .collect(); // Collect the characters into a String
-    println!("datastring: {}", data_string);
+    println!("datastring: '{}'", data_string);
 
     let command = [0xFD, 0x03, 0x16, 0x55, 0x0d]; // Trigger off
     let result = device.write(&command);
@@ -149,5 +149,5 @@ fn main() {
     match result {
         Ok(_) => println!("BEEP Command sent successfully!"),
         Err(e) => eprintln!("Failed to send command: {}", e),
-    }    
+    }
 }
