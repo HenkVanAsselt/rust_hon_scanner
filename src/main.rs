@@ -1,6 +1,25 @@
 use hidapi::{DeviceInfo, HidApi};
 use std::io;
 
+use clap::Parser;
+use clap_num::maybe_hex;
+
+#[derive(Parser, Debug)]
+
+#[command(name = "rust_hon_scanner", version = "0.1", about = "Control a Honeywell HON scanner")]
+struct Cli {
+    /// The name of the device to look for
+    #[arg(short, long)]
+    mask: Option<String>,
+    /// Optional: USB Vendor identifier. This takes precedence over the option --mask
+    #[arg(short, long, value_parser=maybe_hex::<u16>)]
+    vid: Option<u16>,
+    /// Optional: USB Product identifier. This takes precedence over the option --mask
+    #[arg(short, long, value_parser=maybe_hex::<u16>)]
+    pid: Option<u16>,
+
+}
+
 fn enumerate_usb_devices() -> Vec<DeviceInfo> {
     let mut unique_ids: Vec<String> = Vec::new();
     let mut available_usb_devices: Vec<DeviceInfo> = Vec::new();
@@ -84,26 +103,55 @@ fn show_available_devices(devices: Vec<DeviceInfo>) {
     }
 }
 
+fn is_pid_and_vid_given(pid: Option<u16>, vid: Option<u16>) -> bool {
+    if pid.is_none() || vid.is_none() {
+        return false;
+    }
+    return true;
+}
+
+fn is_mask_given(mask: Option<String>) -> bool {
+    if mask.is_none() {
+        return false;
+    }
+    return true;
+}
+
 fn main() {
-    println!("All available hid devices:");
-    let available_usb_devices: Vec<DeviceInfo> = enumerate_usb_devices();
-    // show_available_devices(available_usb_devices.clone());
-    let index = select_usb_device(available_usb_devices.clone());
-    println!("Selected device: {:?}", available_usb_devices[index]);
     
-    let device = &available_usb_devices[index];
-
-    // Interaction:
-
-    // // Initialize the HID API
-    let api = HidApi::new().unwrap();
+    // Handle the commandline
+    let args = Cli::parse();
+    println!("args: {:?}", args);
 
     // // This is for the Honeywell 1602g
     // let vendor_id = 0x0c2e; // Example vendor ID
     // let product_id = 0x0db3; // Example product ID
     
-    let vendor_id = device.vendor_id();
-    let product_id = device.product_id();
+    let mut vendor_id: u16 = 0;
+    let mut product_id: u16 = 0;
+    
+    if is_pid_and_vid_given(args.pid, args.vid) {
+        // A pid and vid where given on the commandline. Use these.
+        vendor_id = args.vid.unwrap();
+        product_id = args.pid.unwrap();
+    }
+    else if is_mask_given(args.mask.clone()) {
+        println!("Mask given: {}", args.mask.unwrap());
+        // Search here for this maksk in the list of connected USB devices:
+    }
+    else {
+        // Select the USB device from the list of connected USB devices
+        println!("All available hid devices:");
+        let available_usb_devices: Vec<DeviceInfo> = enumerate_usb_devices();
+        let index = select_usb_device(available_usb_devices.clone());
+        println!("Selected device: {:?}", available_usb_devices[index].product_string().unwrap());
+        let device = &available_usb_devices[index];
+        vendor_id = device.vendor_id();
+        product_id = device.product_id();
+    }
+
+    // // Initialize the HID API
+    let api = HidApi::new().unwrap();
 
     // Open the device
     let device = api
@@ -122,13 +170,13 @@ fn main() {
 
     // Read data from the device
     let mut buf = [0u8; 64]; // Buffer to hold the read data
-    let bytes_read = device.read(&mut buf[..]).unwrap();
+    let _bytes_read = device.read(&mut buf[..]).unwrap();
     println!("Raw data: {:?}", buf);
     let aim_identifier: String = buf[2..=4].iter()
         .map(|&x| x as char) // Convert each integer to a char
         .collect(); // Collect the characters into a String
     println!("AIM identifier: {}", aim_identifier);
-    
+
     let data_len: usize = buf[1] as usize;
     // println!("data_len: {}", data_len);
     // Convert the vector to a string. This skips the header AND the AIM identifier.
@@ -150,4 +198,10 @@ fn main() {
         Ok(_) => println!("BEEP Command sent successfully!"),
         Err(e) => eprintln!("Failed to send command: {}", e),
     }
+    
+    
+    
+ 
+
+
 }
