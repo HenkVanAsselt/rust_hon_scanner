@@ -1,12 +1,15 @@
-use hidapi::{DeviceInfo, HidApi};
+use hidapi::{DeviceInfo, HidApi, HidDevice};
 use std::io;
 
 use clap::Parser;
 use clap_num::maybe_hex;
 
 #[derive(Parser, Debug)]
-
-#[command(name = "rust_hon_scanner", version = "0.1", about = "Control a Honeywell USBHID scanner")]
+#[command(
+    name = "rust_hon_scanner",
+    version = "0.1",
+    about = "Control a Honeywell USBHID scanner"
+)]
 struct Cli {
     /// Optional: The name of the device to look for
     #[arg(short, long)]
@@ -17,7 +20,6 @@ struct Cli {
     /// Optional: USB Product identifier. This takes precedence over the option --mask
     #[arg(short, long, value_parser=maybe_hex::<u16>)]
     pid: Option<u16>,
-
 }
 
 fn enumerate_usb_devices() -> Vec<DeviceInfo> {
@@ -64,7 +66,8 @@ fn select_usb_device(devices: Vec<DeviceInfo>) -> usize {
     show_available_devices(devices.clone());
 
     // Prompt the user for an index
-    println!("Please enter the index of the USB device to use:");
+    println!();
+    println!("Please enter the index of the USB device to use: ");
 
     // Read the user input
     let mut input = String::new();
@@ -97,7 +100,6 @@ fn show_available_devices(devices: Vec<DeviceInfo>) {
     }
 }
 
-
 fn find_mask_in_available_devices(devices: Vec<DeviceInfo>, mask: String) -> Option<DeviceInfo> {
     // First see if the mask is found in the product strings (case sensitive !)
     for device in devices.iter() {
@@ -114,16 +116,6 @@ fn find_mask_in_available_devices(devices: Vec<DeviceInfo>, mask: String) -> Opt
     return None;
 }
 
-// let manufacturer_string = device.manufacturer_string().unwrap();
-        // let product_string = device.product_string().unwrap();
-        // let vendor_id = device.vendor_id();
-        // let product_id = device.product_id();
-        // println!(
-        //     "{}: {:20} {:40} ({:04x}:{:04x})",
-        //     index, product_string, manufacturer_string, vendor_id, product_id
-        // );
-
-
 fn is_pid_and_vid_given(pid: Option<u16>, vid: Option<u16>) -> bool {
     if pid.is_none() || vid.is_none() {
         return false;
@@ -138,8 +130,35 @@ fn is_mask_given(mask: Option<String>) -> bool {
     return true;
 }
 
+fn send_trigger_on(device: &HidDevice) {
+    // Example: Write data to the device
+    let command = [0xFD, 0x03, 0x16, 0x54, 0x0d]; // Scanner Trigger on
+    let result = device.write(&command);
+    match result {
+        Ok(_) => println!("TRIGGER ON Command sent successfully!"),
+        Err(e) => eprintln!("Failed to send command: {}", e),
+    }
+}
+
+fn send_trigger_off(device: &HidDevice) {
+    // Example: Write data to the device
+    let command = [0xFD, 0x03, 0x16, 0x55, 0x0d]; // Scanner Trigger off
+    let result = device.write(&command);
+    match result {
+        Ok(_) => println!("TRIGGER OFF Command sent successfully!"),
+        Err(e) => eprintln!("Failed to send command: {}", e),
+    }
+}
+
+fn send_beep(device: &HidDevice) {    let command = [0xFD, 0x03, 0x16, 0x07, 0x0d]; // Beep
+    let result = device.write(&command);
+    match result {
+        Ok(_) => println!("BEEP Command sent successfully!"),
+        Err(e) => eprintln!("Failed to send command: {}", e),
+    }
+}
+
 fn main() {
-    
     // Handle the commandline
     let args = Cli::parse();
     // println!("args: {:?}", args);
@@ -147,16 +166,15 @@ fn main() {
     // // This is for the Honeywell 1602g
     // let vendor_id = 0x0c2e; // Example vendor ID
     // let product_id = 0x0db3; // Example product ID
-    
-    let mut vendor_id: u16 = 0;
-    let mut product_id: u16 = 0;
-    
+
+    let vendor_id: u16;
+    let product_id: u16;
+
     if is_pid_and_vid_given(args.pid, args.vid) {
         // A pid and vid where given on the commandline. Use these.
         vendor_id = args.vid.unwrap();
         product_id = args.pid.unwrap();
-    }
-    else if is_mask_given(args.mask.clone()) {
+    } else if is_mask_given(args.mask.clone()) {
         let mask = args.mask.unwrap();
         println!("Mask given: {}", mask);
         let available_usb_devices: Vec<DeviceInfo> = enumerate_usb_devices();
@@ -168,12 +186,14 @@ fn main() {
         let device = result.unwrap();
         vendor_id = device.vendor_id();
         product_id = device.product_id();
-    }
-    else {
+    } else {
         // Select the USB device from the list of connected USB devices
         let available_usb_devices: Vec<DeviceInfo> = enumerate_usb_devices();
         let index = select_usb_device(available_usb_devices.clone());
-        println!("Selected device: {:?}", available_usb_devices[index].product_string().unwrap());
+        println!(
+            "Selected device: {:?}",
+            available_usb_devices[index].product_string().unwrap()
+        );
         let device = &available_usb_devices[index];
         vendor_id = device.vendor_id();
         product_id = device.product_id();
@@ -186,47 +206,55 @@ fn main() {
     let device = api
         .open(vendor_id, product_id)
         .expect("Failed to open device");
-    println!("Opened device: {:#?}", device.get_product_string().unwrap().unwrap());
+    println!(
+        "Opened device: {:#?}",
+        device.get_product_string().unwrap().unwrap()
+    );
     println!();
-
-    // Example: Write data to the device
-    let command = [0xFD, 0x03, 0x16, 0x54, 0x0d]; // Scanner Trigger on
-    let result = device.write(&command);
-    match result {
-        Ok(_) => println!("TRIGGER ON Command sent successfully!"),
-        Err(e) => eprintln!("Failed to send command: {}", e),
-    }
+    
+    send_trigger_on(&device);
+    // let command = [0xFD, 0x03, 0x16, 0x54, 0x0d]; // Scanner Trigger on
+    // let result = device.write(&command);
+    // match result {
+    //     Ok(_) => println!("TRIGGER ON Command sent successfully!"),
+    //     Err(e) => eprintln!("Failed to send command: {}", e),
+    // }
 
     // Read data from the device
     let mut buf = [0u8; 64]; // Buffer to hold the read data
     let _bytes_read = device.read(&mut buf[..]).unwrap();
     println!("Raw data: {:?}", buf);
-    let aim_identifier: String = buf[2..=4].iter()
+    
+    // Extract the AIM identifier
+    let aim_identifier: String = buf[2..=4]
+        .iter()
         .map(|&x| x as char) // Convert each integer to a char
         .collect(); // Collect the characters into a String
     println!("AIM identifier: {}", aim_identifier);
 
+    // Extract the barcode data
     let data_len: usize = buf[1] as usize;
     // println!("data_len: {}", data_len);
     // Convert the vector to a string. This skips the header AND the AIM identifier.
-    let data_string: String = buf[5..=data_len+5].iter()
+    let data_string: String = buf[5..=data_len + 5]
+        .iter()
         .map(|&x| x as char) // Convert each integer to a char
         .collect(); // Collect the characters into a String
     println!("datastring: '{}'", data_string);
 
-    let command = [0xFD, 0x03, 0x16, 0x55, 0x0d]; // Trigger off
-    let result = device.write(&command);
-    match result {
-        Ok(_) => println!("TRIGGER OFF Command sent successfully!"),
-        Err(e) => eprintln!("Failed to send command: {}", e),
-    }
+    send_trigger_off(&device);
+    // let command = [0xFD, 0x03, 0x16, 0x55, 0x0d]; // Trigger off
+    // let result = device.write(&command);
+    // match result {
+    //     Ok(_) => println!("TRIGGER OFF Command sent successfully!"),
+    //     Err(e) => eprintln!("Failed to send command: {}", e),
+    // }
 
-    let command = [0xFD, 0x03, 0x16, 0x07, 0x0d]; // Beep
-    let result = device.write(&command);
-    match result {
-        Ok(_) => println!("BEEP Command sent successfully!"),
-        Err(e) => eprintln!("Failed to send command: {}", e),
-    }
-
-
+    send_beep(&device);
+    // let command = [0xFD, 0x03, 0x16, 0x07, 0x0d]; // Beep
+    // let result = device.write(&command);
+    // match result {
+    //     Ok(_) => println!("BEEP Command sent successfully!"),
+    //     Err(e) => eprintln!("Failed to send command: {}", e),
+    // }
 }
