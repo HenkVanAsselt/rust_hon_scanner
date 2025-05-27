@@ -1,5 +1,7 @@
 use hidapi::{DeviceInfo, HidApi, HidDevice};
 use std::io;
+use std::thread::sleep;
+use std::time;
 
 use clap::Parser;
 use clap_num::maybe_hex;
@@ -150,11 +152,63 @@ fn send_trigger_off(device: &HidDevice) {
     }
 }
 
-fn send_beep(device: &HidDevice) {    let command = [0xFD, 0x03, 0x16, 0x07, 0x0d]; // Beep
+fn send_beep(device: &HidDevice) {    
+    let command = [0xFD, 0x03, 0x16, 0x07, 0x0d]; // Beep
     let result = device.write(&command);
     match result {
         Ok(_) => println!("BEEP Command sent successfully!"),
         Err(e) => eprintln!("Failed to send command: {}", e),
+    }
+}
+
+fn send_revinfo(device: &HidDevice) {
+    let command = [0xFD, 0x0F, 0x16, 0x4D, 0x0D, 0x52, 0x45, 0x56, 0x49, 0x4e, 0x46, 0x2e]; 
+    let result = device.write(&command);
+    match result {
+        Ok(_) => println!("REVINF. Command sent successfully!"),
+        Err(e) => eprintln!("Failed to send command: {}", e),
+    }    
+}
+
+fn read_data(device: &HidDevice) {
+    
+    println!("Reading data...");
+
+    let mut full_response: Vec<String> = Vec::new();
+
+    loop {
+
+        // Read data from the device
+        sleep(time::Duration::from_millis(100));
+        let mut buf = [0u8; 64]; // Buffer to hold the read data
+        let _bytes_read = device.read_timeout(&mut buf[..], 300).unwrap();
+        println!("Raw data: ({}) {:?}", _bytes_read, buf);
+        if _bytes_read == 0 {
+            println!("Done reading data.");
+            println!("Full response as vector: {:?}", full_response);
+            let resp = full_response.join("");
+            println!("resp = {}", resp);
+            return;
+        }
+
+        // Extract the AIM identifier
+        let aim_identifier: String = buf[2..=4]
+            .iter()
+            .map(|&x| x as char) // Convert each integer to a char
+            .collect(); // Collect the characters into a String
+        println!("AIM identifier: {}", aim_identifier);
+
+        // Extract the barcode data
+        let data_len: usize = buf[1] as usize;
+        // println!("data_len: {}", data_len);
+        // Convert the vector to a string. This skips the header AND the AIM identifier.
+        let data_string: String = buf[5..=data_len + 5]
+            .iter()
+            .map(|&x| x as char) // Convert each integer to a char
+            .collect(); // Collect the characters into a String
+        println!("datastring: '{}'", data_string);
+        full_response.push(data_string);
+        
     }
 }
 
@@ -211,50 +265,14 @@ fn main() {
         device.get_product_string().unwrap().unwrap()
     );
     println!();
-    
-    send_trigger_on(&device);
-    // let command = [0xFD, 0x03, 0x16, 0x54, 0x0d]; // Scanner Trigger on
-    // let result = device.write(&command);
-    // match result {
-    //     Ok(_) => println!("TRIGGER ON Command sent successfully!"),
-    //     Err(e) => eprintln!("Failed to send command: {}", e),
-    // }
-
-    // Read data from the device
-    let mut buf = [0u8; 64]; // Buffer to hold the read data
-    let _bytes_read = device.read(&mut buf[..]).unwrap();
-    println!("Raw data: {:?}", buf);
-    
-    // Extract the AIM identifier
-    let aim_identifier: String = buf[2..=4]
-        .iter()
-        .map(|&x| x as char) // Convert each integer to a char
-        .collect(); // Collect the characters into a String
-    println!("AIM identifier: {}", aim_identifier);
-
-    // Extract the barcode data
-    let data_len: usize = buf[1] as usize;
-    // println!("data_len: {}", data_len);
-    // Convert the vector to a string. This skips the header AND the AIM identifier.
-    let data_string: String = buf[5..=data_len + 5]
-        .iter()
-        .map(|&x| x as char) // Convert each integer to a char
-        .collect(); // Collect the characters into a String
-    println!("datastring: '{}'", data_string);
-
-    send_trigger_off(&device);
-    // let command = [0xFD, 0x03, 0x16, 0x55, 0x0d]; // Trigger off
-    // let result = device.write(&command);
-    // match result {
-    //     Ok(_) => println!("TRIGGER OFF Command sent successfully!"),
-    //     Err(e) => eprintln!("Failed to send command: {}", e),
-    // }
 
     send_beep(&device);
-    // let command = [0xFD, 0x03, 0x16, 0x07, 0x0d]; // Beep
-    // let result = device.write(&command);
-    // match result {
-    //     Ok(_) => println!("BEEP Command sent successfully!"),
-    //     Err(e) => eprintln!("Failed to send command: {}", e),
-    // }
+    send_revinfo(&device);
+    read_data(&device);
+
+    send_trigger_on(&device);
+    sleep(time::Duration::from_secs(1));
+    read_data(&device);
+    send_trigger_off(&device);
+    send_beep(&device);
 }
