@@ -22,9 +22,15 @@ struct Cli {
     /// Optional: USB Product identifier. This takes precedence over the option --mask
     #[arg(short, long, value_parser=maybe_hex::<u16>)]
     pid: Option<u16>,
-    /// Optional: if set, show a list of available devices and exit
+    /// Optional: Show a list of available devices and exit
     #[arg(short, long, default_value = "false")]
-    show: bool,
+    list: bool,
+    /// Optional: Scan a barcode
+    #[arg(short, long, default_value = "false")]
+    scan: bool,
+    /// Optional: Send REVINFO.
+    #[arg(short, long, default_value = "false")]
+    info: bool,
     /// Optional: The command to send to the selected scanner
     #[arg(short, long)]
     command: Option<String>,
@@ -71,7 +77,7 @@ fn enumerate_usb_devices() -> Vec<DeviceInfo> {
 }
 
 fn select_usb_device(devices: &Vec<DeviceInfo>) -> usize {
-    show_available_devices(&devices);
+    show_available_devices(devices);
 
     // Prompt the user for an index
     println!();
@@ -86,16 +92,22 @@ fn select_usb_device(devices: &Vec<DeviceInfo>) -> usize {
     // Parse the input to an integer
     let index: usize = input.trim().parse().unwrap();
     let max_index = devices.len();
-    let i = if index < max_index {
+    // let i = if index < max_index {
+    //     index
+    // } else {
+    //     println!("Invalid index. Please try again.");
+    //     select_usb_device(devices)
+    // };
+    // i
+    if index < max_index {
         index
     } else {
         println!("Invalid index. Please try again.");
         select_usb_device(devices)
-    };
-    i
+    }
 }
 
-fn show_available_devices(devices: &Vec<DeviceInfo>) {
+fn show_available_devices(devices: &[DeviceInfo]) {
     println!();
     println!("Connected USB devices:");
     for (index, device) in devices.iter().enumerate() {
@@ -124,21 +136,21 @@ fn find_mask_in_available_devices(devices: Vec<DeviceInfo>, mask: String) -> Opt
             return Some(device.clone());
         }
     }
-    return None;
+    None
 }
 
 fn is_pid_and_vid_given(pid: Option<u16>, vid: Option<u16>) -> bool {
     if pid.is_none() || vid.is_none() {
         return false;
     }
-    return true;
+    true
 }
 
 fn is_mask_given(mask: &Option<String>) -> bool {
     if mask.is_none() {
         return false;
     }
-    return true;
+    true
 }
 
 fn send_trigger_on(device: &HidDevice) {
@@ -152,17 +164,17 @@ fn send_trigger_on(device: &HidDevice) {
     }
 }
 
-fn send_trigger_off(device: &HidDevice) {
-    // Example: Write data to the device
-    let command = [0xFD, 0x03, 0x16, 0x55, 0x0d]; // Scanner Trigger off
-    let result = device.write(&command);
-    match result {
-        // Ok(_) => println!("TRIGGER OFF Command sent successfully!"),
-        Ok(_) => () ,
-        Err(e) => eprintln!("Failed to send command: {}", e),
-           
-    }
-}
+// fn send_trigger_off(device: &HidDevice) {
+//     // Example: Write data to the device
+//     let command = [0xFD, 0x03, 0x16, 0x55, 0x0d]; // Scanner Trigger off
+//     let result = device.write(&command);
+//     match result {
+//         // Ok(_) => println!("TRIGGER OFF Command sent successfully!"),
+//         Ok(_) => () ,
+//         Err(e) => eprintln!("Failed to send command: {}", e),
+//            
+//     }
+// }
 
 fn send_beep(device: &HidDevice) {
     let command = [0xFD, 0x03, 0x16, 0x07, 0x0d]; // Beep
@@ -250,6 +262,13 @@ fn read_data(device: &HidDevice) {
     }
 }
 
+fn scan_a_barcode(device: &HidDevice) {
+    send_trigger_on(device);
+    // sleep(time::Duration::from_secs(1));
+    read_data(device);
+    // send_trigger_off(&device);
+}
+
 fn main() {
     // Handle the commandline
     let args = Cli::parse();
@@ -259,7 +278,7 @@ fn main() {
     // let vendor_id = 0x0c2e; // Example vendor ID
     // let product_id = 0x0db3; // Example product ID
     
-    if args.show {
+    if args.list {
         let available_usb_devices: Vec<DeviceInfo> = enumerate_usb_devices();
         show_available_devices(&available_usb_devices);
         return;        
@@ -274,7 +293,7 @@ fn main() {
         product_id = args.pid.unwrap();
     } else if is_mask_given(&args.mask) {
         let mask = args.mask.unwrap();
-        println!("Mask given: {}", mask);
+        // println!("Mask given: {}", mask);
         let available_usb_devices: Vec<DeviceInfo> = enumerate_usb_devices();
         let result = find_mask_in_available_devices(available_usb_devices, mask.clone());
         if result.is_none() {
@@ -313,14 +332,18 @@ fn main() {
     if args.command.is_some() {
         let commandstr = args.command.unwrap();
         send_command(&device, commandstr);
+        return;
+    } 
+        
+    if args.scan {
+        scan_a_barcode(&device);
+        send_beep(&device);
     }
 
-    // send_beep(&device);
-    // send_revinfo(&device);
-    // read_data(&device);
-    // 
-    // send_trigger_on(&device);
-    // sleep(time::Duration::from_secs(1));
-    // read_data(&device);
-    // send_trigger_off(&device);
+    if args.info {
+        send_revinfo(&device);
+        read_data(&device);
+        send_beep(&device);
+    }
+    
 }
