@@ -7,3 +7,5 @@ egui = "0.31.1"
 egui-winit = "0.31.1"
 egui_extras= "0.31.1"
 eframe = "0.31.1"
+hidapi = "2.6.3"
+usbhid = {version="2.0", path = "./crates/usbhid"}
