@@ -44,7 +44,7 @@ pub fn enumerate_usb_devices() -> Vec<DeviceInfo> {
 }
 
 pub fn select_usb_device(devices: &Vec<DeviceInfo>) -> usize {
-    show_available_devices(devices);
+    show_available_devices();
 
     // Prompt the user for an index
     println!();
@@ -68,10 +68,11 @@ pub fn select_usb_device(devices: &Vec<DeviceInfo>) -> usize {
     }
 }
 
-pub fn show_available_devices(devices: &[DeviceInfo]) {
+pub fn show_available_devices() {
+    let available_usb_devices: Vec<DeviceInfo> = enumerate_usb_devices();
     println!();
     println!("Connected USB devices:");
-    for (index, device) in devices.iter().enumerate() {
+    for (index, device) in available_usb_devices.iter().enumerate() {
         let manufacturer_string = device.manufacturer_string().unwrap();
         let product_string = device.product_string().unwrap();
         let vendor_id = device.vendor_id();
@@ -152,6 +153,83 @@ pub fn open_device(vendor_id: u16, product_id: u16) -> HidDevice {
         device.get_product_string().unwrap().unwrap()
     );
     device
+}
+
+//
+// Honeywell specific scanner functions
+//
+
+pub fn send_trigger_on(device: &HidDevice) {
+    // Example: Write data to the device
+    let command = [0xFD, 0x03, 0x16, 0x54, 0x0d]; // Scanner Trigger on
+    let result = device.write(&command);
+    match result {
+        // Ok(_) => println!("TRIGGER ON Command sent successfully!"),
+        Ok(_) => (),
+        Err(e) => eprintln!("Failed to send command: {}", e),
+    }
+}
+
+// pub fn send_trigger_off(device: &HidDevice) {
+//     // Example: Write data to the device
+//     let command = [0xFD, 0x03, 0x16, 0x55, 0x0d]; // Scanner Trigger off
+//     let result = device.write(&command);
+//     match result {
+//         // Ok(_) => println!("TRIGGER OFF Command sent successfully!"),
+//         Ok(_) => () ,
+//         Err(e) => eprintln!("Failed to send command: {}", e),
+//
+//     }
+// }
+
+pub fn send_beep(device: &HidDevice) {
+    let command = [0xFD, 0x03, 0x16, 0x07, 0x0d]; // Beep
+    let result = device.write(&command);
+    match result {
+        // Ok(_) => println!("BEEP Command sent successfully!"),
+        Ok(_) => (),
+        Err(e) => eprintln!("Failed to send command: {}", e),
+    }
+}
+
+pub fn send_revinfo(device: &HidDevice) {
+    let command = [
+        0xFD, 0x0F, 0x16, 0x4D, 0x0D, 0x52, 0x45, 0x56, 0x49, 0x4e, 0x46, 0x2e,
+    ];
+    let result = device.write(&command);
+    match result {
+        Ok(_) => println!("REVINF. Command sent successfully!"),
+        Err(e) => eprintln!("Failed to send command: {}", e),
+    }
+}
+
+pub fn send_command(device: &HidDevice, commandstr: String) {
+    println!("Sending command: {}", commandstr);
+
+    let mut command = vec![0xFD, 0x0F, 0x16, 0x4D, 0x0D];
+
+    let ascii_values: Vec<u8> = commandstr.chars().map(|c| c as u8).collect();
+
+    // println!("{:?}", ascii_values);
+    command.extend(ascii_values);
+    // println!("Extended command{:?}", command);
+
+    let result = device.write(&command);
+    match result {
+        // Ok(_) => println!("BEEP Command sent successfully!"),
+        Ok(_) => (),
+        Err(e) => eprintln!("Failed to send command: {}", e),
+    }
+
+    read_data(device);
+}
+
+
+pub fn scan_a_barcode(device: &HidDevice) {
+    send_trigger_on(device);
+    // sleep(time::Duration::from_secs(1));
+    read_data(device);
+    // send_trigger_off(&device);
 }
 
 

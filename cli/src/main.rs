@@ -1,4 +1,4 @@
-use hidapi::{DeviceInfo, HidDevice};
+use hidapi::{DeviceInfo};
 
 use usbhid::enumerate_usb_devices;
 use usbhid::find_mask_in_available_devices;
@@ -6,6 +6,10 @@ use usbhid::select_usb_device;
 use usbhid::show_available_devices;
 use usbhid::read_data;
 use usbhid::open_device;
+use usbhid::send_command;
+use usbhid::send_revinfo;
+use usbhid::scan_a_barcode;
+use usbhid::send_beep;
 
 use clap::Parser;
 use clap_num::maybe_hex;
@@ -17,25 +21,32 @@ use clap_num::maybe_hex;
     about = "Control a Honeywell USBHID scanner"
 )]
 struct Cli {
-    /// Optional: The name of the device to look for
+    
+    /// The name of the device to look for. (or use --vid and --pid)
     #[arg(short, long)]
     mask: Option<String>,
-    /// Optional: USB Vendor identifier. This takes precedence over the option --mask
+    
+    /// USB vid (Vendor identifier). This takes precedence over the option --mask
     #[arg(short, long, value_parser=maybe_hex::<u16>)]
     vid: Option<u16>,
-    /// Optional: USB Product identifier. This takes precedence over the option --mask
+    
+    /// USB pid (Product identifier). This takes precedence over the option --mask
     #[arg(short, long, value_parser=maybe_hex::<u16>)]
     pid: Option<u16>,
-    /// Optional: Show a list of available devices and exit
+    
+    /// Show a list of available devices and exit
     #[arg(short, long, default_value = "false")]
     list: bool,
-    /// Optional: Scan a barcode
+    
+    /// Scan a barcode
     #[arg(short, long, default_value = "false")]
     scan: bool,
-    /// Optional: Send REVINFO.
+    
+    /// Send REVINFO.
     #[arg(short, long, default_value = "false")]
     info: bool,
-    /// Optional: The command to send to the selected scanner
+    
+    /// The command to send to the selected scanner
     #[arg(short, long)]
     command: Option<String>,
 }
@@ -56,78 +67,7 @@ fn is_mask_given(mask: &Option<String>) -> bool {
     true
 }
 
-fn send_trigger_on(device: &HidDevice) {
-    // Example: Write data to the device
-    let command = [0xFD, 0x03, 0x16, 0x54, 0x0d]; // Scanner Trigger on
-    let result = device.write(&command);
-    match result {
-        // Ok(_) => println!("TRIGGER ON Command sent successfully!"),
-        Ok(_) => (),
-        Err(e) => eprintln!("Failed to send command: {}", e),
-    }
-}
 
-// fn send_trigger_off(device: &HidDevice) {
-//     // Example: Write data to the device
-//     let command = [0xFD, 0x03, 0x16, 0x55, 0x0d]; // Scanner Trigger off
-//     let result = device.write(&command);
-//     match result {
-//         // Ok(_) => println!("TRIGGER OFF Command sent successfully!"),
-//         Ok(_) => () ,
-//         Err(e) => eprintln!("Failed to send command: {}", e),
-//
-//     }
-// }
-
-fn send_beep(device: &HidDevice) {
-    let command = [0xFD, 0x03, 0x16, 0x07, 0x0d]; // Beep
-    let result = device.write(&command);
-    match result {
-        // Ok(_) => println!("BEEP Command sent successfully!"),
-        Ok(_) => (),
-        Err(e) => eprintln!("Failed to send command: {}", e),
-    }
-}
-
-fn send_revinfo(device: &HidDevice) {
-    let command = [
-        0xFD, 0x0F, 0x16, 0x4D, 0x0D, 0x52, 0x45, 0x56, 0x49, 0x4e, 0x46, 0x2e,
-    ];
-    let result = device.write(&command);
-    match result {
-        Ok(_) => println!("REVINF. Command sent successfully!"),
-        Err(e) => eprintln!("Failed to send command: {}", e),
-    }
-}
-
-fn send_command(device: &HidDevice, commandstr: String) {
-    println!("Sending command: {}", commandstr);
-
-    let mut command = vec![0xFD, 0x0F, 0x16, 0x4D, 0x0D];
-
-    let ascii_values: Vec<u8> = commandstr.chars().map(|c| c as u8).collect();
-
-    // println!("{:?}", ascii_values);
-    command.extend(ascii_values);
-    // println!("Extended command{:?}", command);
-
-    let result = device.write(&command);
-    match result {
-        // Ok(_) => println!("BEEP Command sent successfully!"),
-        Ok(_) => (),
-        Err(e) => eprintln!("Failed to send command: {}", e),
-    }
-
-    read_data(device);
-}
-
-
-fn scan_a_barcode(device: &HidDevice) {
-    send_trigger_on(device);
-    // sleep(time::Duration::from_secs(1));
-    read_data(device);
-    // send_trigger_off(&device);
-}
 
 fn main() {
     // Handle the commandline
@@ -139,8 +79,7 @@ fn main() {
     // let product_id = 0x0db3; // Example product ID
 
     if args.list {
-        let available_usb_devices: Vec<DeviceInfo> = enumerate_usb_devices();
-        show_available_devices(&available_usb_devices);
+        show_available_devices();
         return;
     }
 
@@ -175,19 +114,6 @@ fn main() {
         vendor_id = device.vendor_id();
         product_id = device.product_id();
     }
-
-    // // Initialize the HID API
-    // let api = HidApi::new().unwrap();
-    // 
-    // // Open the device
-    // let device = api
-    //     .open(vendor_id, product_id)
-    //     .expect("Failed to open device");
-    // println!(
-    //     "Opened device: {:#?}",
-    //     device.get_product_string().unwrap().unwrap()
-    // );
-    // println!();
     
     let device = open_device(vendor_id, product_id);
 

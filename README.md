@@ -14,7 +14,7 @@ Options:
 -i, --info               Optional: Send REVINFO
 -c, --command <COMMAND>  Optional: The command to send to the selected scanner
 -h, --help               Print help
--V, --version            Print versio
+-V, --version            Print version
 ```
 
 ## Notes:

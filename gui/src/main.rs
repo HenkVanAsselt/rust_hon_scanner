@@ -3,8 +3,26 @@
 
 use eframe::egui;
 
+use hidapi::{DeviceInfo, HidDevice};
+
+use usbhid::{enumerate_usb_devices, send_beep, send_command, send_revinfo};
+use usbhid::find_mask_in_available_devices;
+use usbhid::select_usb_device;
+use usbhid::show_available_devices;
+use usbhid::read_data;
+use usbhid::open_device;
+
 fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+
+    let _available_usb_devices: Vec<DeviceInfo> = enumerate_usb_devices();
+
+    // For test purposes: the Honeywell 1602g:
+    let vendor_id = 0x0c2e; // Example vendor ID
+    let product_id = 0x0db3; // Example product ID
+
+    // let device = open_device(vendor_id, product_id);
+    
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
         ..Default::default()
@@ -24,6 +42,7 @@ fn main() -> eframe::Result {
 struct MyApp {
     name: String,
     age: u32,
+    device: HidDevice,
 }
 
 impl Default for MyApp {
@@ -31,6 +50,7 @@ impl Default for MyApp {
         Self {
             name: "Henk".to_owned(),
             age: 61,
+            device: open_device(0x0c2e, 0x0db3),
         }
     }
 }
@@ -41,15 +61,20 @@ impl eframe::App for MyApp {
             ui.heading("HON Scanner Control");
             if ui.button("DEFOVR.").clicked() {
                 println!("Sending DEFOVR.");
+                send_command(&self.device, String::from("DEFOVR."));
             }
             if ui.button("DEFALT.").clicked() {
                 println!("Sending DEFALT.");
+                send_command(&self.device, String::from("DEFALT."));
             }
             if ui.button("REVINF.").clicked() {
                 println!("Sending REVINF.");
+                send_revinfo(&self.device);
+                read_data(&self.device);
             }
             if ui.button("BEEP").clicked() {
                 println!("Sending a beep command");
+                send_beep(&self.device);
             }
 
             // From the original example:
