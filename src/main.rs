@@ -1,7 +1,7 @@
 use hidapi::{DeviceInfo, HidApi, HidDevice};
-use std::io;
 use std::thread::sleep;
 use std::time;
+use std::io::{self, Write}; // Import necessary traits
 
 use clap::Parser;
 use clap_num::maybe_hex;
@@ -81,7 +81,8 @@ fn select_usb_device(devices: &Vec<DeviceInfo>) -> usize {
 
     // Prompt the user for an index
     println!();
-    println!("Please enter the index of the USB device to use: ");
+    print!("Please enter the index of the USB device to use: ");
+    io::stdout().flush().unwrap(); // Flush the output to ensure it appears immediately
 
     // Read the user input
     let mut input = String::new();
@@ -92,13 +93,6 @@ fn select_usb_device(devices: &Vec<DeviceInfo>) -> usize {
     // Parse the input to an integer
     let index: usize = input.trim().parse().unwrap();
     let max_index = devices.len();
-    // let i = if index < max_index {
-    //     index
-    // } else {
-    //     println!("Invalid index. Please try again.");
-    //     select_usb_device(devices)
-    // };
-    // i
     if index < max_index {
         index
     } else {
@@ -159,7 +153,7 @@ fn send_trigger_on(device: &HidDevice) {
     let result = device.write(&command);
     match result {
         // Ok(_) => println!("TRIGGER ON Command sent successfully!"),
-        Ok(_) => () ,
+        Ok(_) => (),
         Err(e) => eprintln!("Failed to send command: {}", e),
     }
 }
@@ -172,7 +166,7 @@ fn send_trigger_on(device: &HidDevice) {
 //         // Ok(_) => println!("TRIGGER OFF Command sent successfully!"),
 //         Ok(_) => () ,
 //         Err(e) => eprintln!("Failed to send command: {}", e),
-//            
+//
 //     }
 // }
 
@@ -187,7 +181,9 @@ fn send_beep(device: &HidDevice) {
 }
 
 fn send_revinfo(device: &HidDevice) {
-    let command = [0xFD, 0x0F, 0x16, 0x4D, 0x0D, 0x52, 0x45, 0x56, 0x49, 0x4e, 0x46, 0x2e];
+    let command = [
+        0xFD, 0x0F, 0x16, 0x4D, 0x0D, 0x52, 0x45, 0x56, 0x49, 0x4e, 0x46, 0x2e,
+    ];
     let result = device.write(&command);
     match result {
         Ok(_) => println!("REVINF. Command sent successfully!"),
@@ -196,14 +192,11 @@ fn send_revinfo(device: &HidDevice) {
 }
 
 fn send_command(device: &HidDevice, commandstr: String) {
-    
     println!("Sending command: {}", commandstr);
-    
+
     let mut command = vec![0xFD, 0x0F, 0x16, 0x4D, 0x0D];
 
-    let ascii_values: Vec<u8> = commandstr.chars()
-        .map(|c| c as u8)
-        .collect();
+    let ascii_values: Vec<u8> = commandstr.chars().map(|c| c as u8).collect();
 
     // println!("{:?}", ascii_values);
     command.extend(ascii_values);
@@ -215,19 +208,16 @@ fn send_command(device: &HidDevice, commandstr: String) {
         Ok(_) => (),
         Err(e) => eprintln!("Failed to send command: {}", e),
     }
-    
-    read_data(device);
 
+    read_data(device);
 }
 
 fn read_data(device: &HidDevice) {
-
     // println!("Reading data...");
 
     let mut full_response: Vec<String> = Vec::new();
 
     loop {
-
         // Read data from the device
         sleep(time::Duration::from_millis(50));
         let mut buf = [0u8; 64]; // Buffer to hold the read data
@@ -258,7 +248,6 @@ fn read_data(device: &HidDevice) {
             .collect(); // Collect the characters into a String
         // println!("AIM: {}datastring: '{}'", aim_identifier,data_string);
         full_response.push(data_string);
-
     }
 }
 
@@ -277,11 +266,11 @@ fn main() {
     // // This is for the Honeywell 1602g
     // let vendor_id = 0x0c2e; // Example vendor ID
     // let product_id = 0x0db3; // Example product ID
-    
+
     if args.list {
         let available_usb_devices: Vec<DeviceInfo> = enumerate_usb_devices();
         show_available_devices(&available_usb_devices);
-        return;        
+        return;
     }
 
     let vendor_id: u16;
@@ -328,13 +317,13 @@ fn main() {
         device.get_product_string().unwrap().unwrap()
     );
     println!();
-    
+
     if args.command.is_some() {
         let commandstr = args.command.unwrap();
         send_command(&device, commandstr);
         return;
-    } 
-        
+    }
+
     if args.scan {
         scan_a_barcode(&device);
         send_beep(&device);
@@ -345,5 +334,4 @@ fn main() {
         read_data(&device);
         send_beep(&device);
     }
-    
 }
