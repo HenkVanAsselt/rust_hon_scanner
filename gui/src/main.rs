@@ -53,10 +53,10 @@ fn main() -> eframe::Result {
 }
 
 struct MyApp {
-    name: String,               // From the original test. Delete this later
-    age: u32,                   // From the original test. Delete this later
-    devices: Vec<DeviceInfo>,    // To store all discovered USB devices.
-    device: HidDevice,          // To store the selected device.
+    name: String,                   // From the original test. Delete this later
+    age: u32,                       // From the original test. Delete this later
+    devices: Vec<DeviceInfo>,       // To store all discovered USB devices.
+    device: Option<HidDevice>,      // To store the selected device.
 }
 
 impl Default for MyApp {
@@ -65,7 +65,7 @@ impl Default for MyApp {
             name: "Henk".to_owned(),
             age: 61,
             devices: enumerate_usb_devices(),
-            device: open_device(0x0c2e, 0x0db3),
+            device: None,
         }
     }
 }
@@ -92,7 +92,7 @@ impl eframe::App for MyApp {
                         for device in &self.devices {
                             if ui.label(device.product_string().unwrap_or("")).clicked() {
                                 println!("Selected device: {}", device.product_string().unwrap_or(""));
-                                self.device = open_device(device.vendor_id(), device.product_id());
+                                self.device = Some(open_device(device.vendor_id(), device.product_id()).expect("Failed to open device"));
                             }
                             ui.label(device.product_string().unwrap_or(""));
                             ui.label(device.manufacturer_string().unwrap_or(""));
@@ -111,22 +111,26 @@ impl eframe::App for MyApp {
 
             if ui.button("DEFOVR.").clicked() {
                 println!("Sending DEFOVR.");
-                send_command(&self.device, String::from("DEFOVR."));
+                let dev = self.device.as_mut().unwrap();
+                send_command(dev, String::from("DEFOVR."));
             }
 
 
             if ui.button("DEFALT.").clicked() {
                 println!("Sending DEFALT.");
-                send_command(&self.device, String::from("DEFALT."));
+                let dev = self.device.as_mut().unwrap();
+                send_command(dev, String::from("DEFALT."));
             }
             if ui.button("REVINF.").clicked() {
                 println!("Sending REVINF.");
-                send_revinfo(&self.device);
-                read_data(&self.device);
+                let dev = self.device.as_mut().unwrap();
+                send_revinfo(dev);
+                read_data(dev);
             }
             if ui.button("BEEP").clicked() {
                 println!("Sending a beep command");
-                send_beep(&self.device);
+                let dev = self.device.as_mut().unwrap();
+                send_beep(dev);
             }
             
             ui.separator();

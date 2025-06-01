@@ -147,19 +147,18 @@ pub fn read_data(device: &HidDevice) {
     }
 }
 
-pub fn open_device(vendor_id: u16, product_id: u16) -> HidDevice {
+pub fn open_device(vendor_id: u16, product_id: u16) -> Option<HidDevice> {
     // Initialize the HID API
     let api = HidApi::new().unwrap();
-
+    
     // Open the device
-    let device = api
-        .open(vendor_id, product_id)
-        .expect("Failed to open device");
-    println!(
-        "Opened device: {:#?}",
-        device.get_product_string().unwrap().unwrap()
-    );
-    device
+    match api.open(vendor_id, product_id) {
+        Ok(device) => Some(device),
+        Err(e) => {
+            println!("Failed to open device: {:?}", e);
+            None
+        }
+    }
 }
 
 //
@@ -244,9 +243,8 @@ pub fn send_command(device: &HidDevice, commandstr: String) {
 
 pub fn scan_a_barcode(device: &HidDevice) {
     send_trigger_on(device);
-    sleep(time::Duration::from_millis(500));
+    sleep(time::Duration::from_millis(250));
     read_data(device);
-    // send_trigger_off(&device);
 }
 
 

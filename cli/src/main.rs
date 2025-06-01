@@ -1,4 +1,4 @@
-use hidapi::{DeviceInfo};
+use hidapi::{DeviceInfo, HidDevice};
 
 use usbhid::enumerate_usb_devices;
 use usbhid::find_mask_in_available_devices;
@@ -9,7 +9,7 @@ use usbhid::open_device;
 use usbhid::send_command;
 use usbhid::send_revinfo;
 use usbhid::scan_a_barcode;
-use usbhid::send_beep;
+// use usbhid::send_beep;
 
 use clap::Parser;
 use clap_num::maybe_hex;
@@ -115,7 +115,13 @@ fn main() {
         product_id = device.product_id();
     }
     
-    let device = open_device(vendor_id, product_id);
+    let device: HidDevice = match open_device(vendor_id, product_id) {
+        Some(d) => d,
+        None => {
+            println!("Error opening device. Returning from program");
+            return;
+        }   
+    };
 
     if args.command.is_some() {
         let commandstr = args.command.unwrap();
