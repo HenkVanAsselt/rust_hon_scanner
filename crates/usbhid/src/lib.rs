@@ -110,7 +110,14 @@ pub fn read_data(device: &HidDevice) {
         // Read data from the device
         sleep(time::Duration::from_millis(50));
         let mut buf = [0u8; 64]; // Buffer to hold the read data
-        let bytes_read = device.read_timeout(&mut buf[..], 300).unwrap();
+        let result = device.read_timeout(&mut buf[..], 300);
+        let bytes_read = match result {
+            Ok(bytes_read) => bytes_read,
+            Err(e) => {
+                eprintln!("HidError: {}", e);
+                return
+            },
+        };
         // println!("Raw data: ({}) {:?}", bytes_read, buf);
         if bytes_read == 0 {
             // println!("Done reading data.");
@@ -162,7 +169,9 @@ pub fn open_device(vendor_id: u16, product_id: u16) -> HidDevice {
 pub fn send_trigger_on(device: &HidDevice) {
     // Example: Write data to the device
     let command = [0xFD, 0x03, 0x16, 0x54, 0x0d]; // Scanner Trigger on
-    let result = device.write(&command);
+    let mut buffer: [u8;65] = [0;65];
+    buffer[..command.len()].copy_from_slice(&command);
+    let result = device.write(&buffer);
     match result {
         // Ok(_) => println!("TRIGGER ON Command sent successfully!"),
         Ok(_) => (),
@@ -173,7 +182,9 @@ pub fn send_trigger_on(device: &HidDevice) {
 // pub fn send_trigger_off(device: &HidDevice) {
 //     // Example: Write data to the device
 //     let command = [0xFD, 0x03, 0x16, 0x55, 0x0d]; // Scanner Trigger off
-//     let result = device.write(&command);
+//     let mut buffer: [u8;65] = [0;65];
+//     buffer[..command.len()].copy_from_slice(&command);
+//     let result = device.write(&buffer);
 //     match result {
 //         // Ok(_) => println!("TRIGGER OFF Command sent successfully!"),
 //         Ok(_) => () ,
@@ -184,7 +195,9 @@ pub fn send_trigger_on(device: &HidDevice) {
 
 pub fn send_beep(device: &HidDevice) {
     let command = [0xFD, 0x03, 0x16, 0x07, 0x0d]; // Beep
-    let result = device.write(&command);
+    let mut buffer: [u8;65] = [0;65];
+    buffer[..command.len()].copy_from_slice(&command);
+    let result = device.write(&buffer);
     match result {
         // Ok(_) => println!("BEEP Command sent successfully!"),
         Ok(_) => (),
@@ -196,7 +209,9 @@ pub fn send_revinfo(device: &HidDevice) {
     let command = [
         0xFD, 0x0F, 0x16, 0x4D, 0x0D, 0x52, 0x45, 0x56, 0x49, 0x4e, 0x46, 0x2e,
     ];
-    let result = device.write(&command);
+    let mut buffer: [u8;65] = [0;65];
+    buffer[..command.len()].copy_from_slice(&command);
+    let result = device.write(&buffer);
     match result {
         Ok(_) => println!("REVINF. Command sent successfully!"),
         Err(e) => eprintln!("Failed to send command: {}", e),
@@ -214,7 +229,9 @@ pub fn send_command(device: &HidDevice, commandstr: String) {
     command.extend(ascii_values);
     // println!("Extended command{:?}", command);
 
-    let result = device.write(&command);
+    let mut buffer: [u8;65] = [0;65];
+    buffer[..command.len()].copy_from_slice(&command);
+    let result = device.write(&buffer);
     match result {
         // Ok(_) => println!("BEEP Command sent successfully!"),
         Ok(_) => (),
@@ -227,7 +244,7 @@ pub fn send_command(device: &HidDevice, commandstr: String) {
 
 pub fn scan_a_barcode(device: &HidDevice) {
     send_trigger_on(device);
-    // sleep(time::Duration::from_secs(1));
+    sleep(time::Duration::from_millis(500));
     read_data(device);
     // send_trigger_off(&device);
 }

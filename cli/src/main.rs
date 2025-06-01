@@ -125,12 +125,12 @@ fn main() {
 
     if args.scan {
         scan_a_barcode(&device);
-        send_beep(&device);
+        // send_beep(&device);
     }
 
     if args.info {
         send_revinfo(&device);
         read_data(&device);
-        send_beep(&device);
+        // send_beep(&device);
     }
 }

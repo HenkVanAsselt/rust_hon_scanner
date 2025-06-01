@@ -1,30 +1,43 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-#![allow(rustdoc::missing_crate_level_docs)] // it's an example
+// #![allow(rustdoc::missing_crate_level_docs)] // it's an example
 
 use eframe::egui;
 
 use hidapi::{DeviceInfo, HidDevice};
 
 use usbhid::{enumerate_usb_devices, send_beep, send_command, send_revinfo};
-use usbhid::find_mask_in_available_devices;
-use usbhid::select_usb_device;
-use usbhid::show_available_devices;
+// use usbhid::find_mask_in_available_devices;
+// use usbhid::select_usb_device;
+// use usbhid::show_available_devices;
 use usbhid::read_data;
 use usbhid::open_device;
+
+/// 
+/// 
+/// # Arguments 
+/// 
+/// * `pid`: USB Vendor ID
+/// * `vid`: USB Product ID
+/// 
+/// returns: String 
+/// 
+/// # Examples 
+/// 
+/// pid_vid_to_hexstr(0x0c2e, 0x0db3)
+/// "0xc2e, 0xdb3"
+/// 
+/// ```
+fn pid_vid_to_hexstr(pid: u16, vid:u16) -> String {
+    format!("0x{:x}:0x{:x}", pid, vid)
+}
 
 fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
-    let _available_usb_devices: Vec<DeviceInfo> = enumerate_usb_devices();
-
-    // For test purposes: the Honeywell 1602g:
-    let vendor_id = 0x0c2e; // Example vendor ID
-    let product_id = 0x0db3; // Example product ID
-
-    // let device = open_device(vendor_id, product_id);
+    // let _available_usb_devices: Vec<DeviceInfo> = enumerate_usb_devices();
     
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([500.0, 400.0]),
         ..Default::default()
     };
     eframe::run_native(
@@ -40,9 +53,10 @@ fn main() -> eframe::Result {
 }
 
 struct MyApp {
-    name: String,
-    age: u32,
-    device: HidDevice,
+    name: String,               // From the original test. Delete this later
+    age: u32,                   // From the original test. Delete this later
+    devices: Vec<DeviceInfo>,    // To store all discovered USB devices.
+    device: HidDevice,          // To store the selected device.
 }
 
 impl Default for MyApp {
@@ -50,6 +64,7 @@ impl Default for MyApp {
         Self {
             name: "Henk".to_owned(),
             age: 61,
+            devices: enumerate_usb_devices(),
             device: open_device(0x0c2e, 0x0db3),
         }
     }
@@ -59,10 +74,47 @@ impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("HON Scanner Control");
+            ui.separator();
+            
+            // Create a table
+            egui::Grid::new("Available USB devices")
+                .striped(true)
+                .show(
+                    ui,
+                    |ui| {
+                        // Add the header
+                        ui.label(egui::RichText::new("Name").strong());
+                        ui.label(egui::RichText::new("Vendor").strong());
+                        ui.label(egui::RichText::new("vid:pid").strong());
+                        ui.end_row();
+
+                        // Add data rows, which will show information about the available devices.
+                        for device in &self.devices {
+                            if ui.label(device.product_string().unwrap_or("")).clicked() {
+                                println!("Selected device: {}", device.product_string().unwrap_or(""));
+                                self.device = open_device(device.vendor_id(), device.product_id());
+                            }
+                            ui.label(device.product_string().unwrap_or(""));
+                            ui.label(device.manufacturer_string().unwrap_or(""));
+                            ui.label(pid_vid_to_hexstr(device.vendor_id(), device.product_id()));
+                            ui.end_row();
+                        }
+
+                    }
+                );
+
+            ui.separator();
+            if ui.button("Refresh list of connected USB devices").clicked() {
+                self.devices = enumerate_usb_devices();
+            }
+            ui.separator();
+
             if ui.button("DEFOVR.").clicked() {
                 println!("Sending DEFOVR.");
                 send_command(&self.device, String::from("DEFOVR."));
             }
+
+
             if ui.button("DEFALT.").clicked() {
                 println!("Sending DEFALT.");
                 send_command(&self.device, String::from("DEFALT."));
@@ -76,6 +128,8 @@ impl eframe::App for MyApp {
                 println!("Sending a beep command");
                 send_beep(&self.device);
             }
+            
+            ui.separator();
 
             // From the original example:
             ui.horizontal(|ui| {
