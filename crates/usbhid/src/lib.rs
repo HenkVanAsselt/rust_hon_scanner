@@ -149,7 +149,7 @@ pub fn read_data(device: &HidDevice) -> String {
 pub fn open_device(vendor_id: u16, product_id: u16) -> Option<HidDevice> {
     // Initialize the HID API
     let api = HidApi::new().unwrap();
-    
+
     // Open the device
     match api.open(vendor_id, product_id) {
         Ok(device) => Some(device),
