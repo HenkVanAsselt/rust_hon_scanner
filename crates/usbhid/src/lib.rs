@@ -101,10 +101,10 @@ pub fn find_mask_in_available_devices(devices: Vec<DeviceInfo>, mask: String) ->
     None
 }
 
-pub fn read_data(device: &HidDevice) {
+pub fn read_data(device: &HidDevice) -> String {
     // println!("Reading data...");
 
-    let mut full_response: Vec<String> = Vec::new();
+    let mut full_response = String::new();
 
     loop {
         // Read data from the device
@@ -115,16 +115,15 @@ pub fn read_data(device: &HidDevice) {
             Ok(bytes_read) => bytes_read,
             Err(e) => {
                 eprintln!("HidError: {}", e);
-                return
+                return full_response;
             },
         };
         // println!("Raw data: ({}) {:?}", bytes_read, buf);
         if bytes_read == 0 {
             // println!("Done reading data.");
             // println!("Full response as vector: {:?}", full_response);
-            let resp = full_response.join("");
-            println!("{}", resp);
-            return;
+            println!("{}", full_response);
+            return full_response;
         }
 
         // Extract the AIM identifier
@@ -138,12 +137,12 @@ pub fn read_data(device: &HidDevice) {
         let data_len: usize = buf[1] as usize;
         // println!("data_len: {}", data_len);
         // Convert the vector to a string. This skips the header AND the AIM identifier.
-        let data_string: String = buf[5..=data_len + 5]
+        let data_string: String = buf[5..=data_len + 4]
             .iter()
             .map(|&x| x as char) // Convert each integer to a char
             .collect(); // Collect the characters into a String
-        // println!("AIM: {}datastring: '{}'", aim_identifier,data_string);
-        full_response.push(data_string);
+        println!("AIM: {} datastring: '{}'", _aim_identifier,data_string);
+        full_response.push_str(&data_string);
     }
 }
 
