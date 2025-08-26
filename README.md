@@ -30,4 +30,10 @@ Connected USB devices:
 2: M720_Triathlon       Logitech                                 (046d:b01
 ```
 
+## Developer notes
+
+Q: project rust_hon_scanner fails to compileren on Raspberry Pi with "The system library 'libudev' required bij crate 'hdiapi' was not found
+A: sudo apt install libudev-dev
+
+
 
