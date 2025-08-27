@@ -35,5 +35,5 @@ Connected USB devices:
 Q: project rust_hon_scanner fails to compileren on Raspberry Pi with "The system library 'libudev' required bij crate 'hdiapi' was not found
 A: sudo apt install libudev-dev
 
-
+Test github change
 
